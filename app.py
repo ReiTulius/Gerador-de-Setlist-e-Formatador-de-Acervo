@@ -3,10 +3,10 @@ import pandas as pd
 import re
 from datetime import datetime
 
-# Configuração da página do aplicativo (Apenas uma vez no topo)
+# Configuração da página do aplicativo (Definida apenas UMA vez no topo do site)
 st.set_page_config(page_title="Painel Udesc FM - Tulio", page_icon="📻", layout="wide")
 
-# --- LINK DA PLANILHA DO GOOGLE SHEETS (SEU BANCO DE DADOS DE@ARROBAS) ---
+# 🔗 LINK DA PLANILHA DO GOOGLE DO TEU GERADOR DE SETLIST
 URL_GOOGLE_SHEETS = "https://docs.google.com/spreadsheets/d/1zkPm3F9W8QbOBhKvdV7jFCYqH-U8Qbru5w5TDyAHQLw/edit?usp=sharing"
 
 # --- MENU LATERAL DE NAVEGAÇÃO ---
@@ -21,7 +21,7 @@ st.sidebar.caption("Desenvolvido para otimizar a programação da Udesc FM 🎧"
 
 
 # ==========================================
-# FUNÇÕES DE SUPORTE (COMPARTILHADAS)
+# FUNÇÕES DE SUPORTE DO GERADOR DE SETLIST
 # ==========================================
 def converter_link_google(url):
     if "docs.google.com/spreadsheets" in url:
@@ -29,7 +29,7 @@ def converter_link_google(url):
         return f"https://docs.google.com/spreadsheets/d/{id_planilha}/export?format=csv"
     return url
 
-@st.cache_data(ttl=300) # Mantém em memória por 5 minutos para performance ultra-rápida
+@st.cache_data(ttl=300)
 def carregar_banco_instagram(url):
     try:
         url_direta = converter_link_google(url)
@@ -49,12 +49,15 @@ def carregar_banco_instagram(url):
     except Exception as e:
         return {}, f"Erro ao conectar com o Google Drive: {e}"
 
+
+# ==========================================
+# FUNÇÕES DE SUPORTE DO FORMATADOR DE ACERVO
+# ==========================================
 def processar_linha_musica(linha_bruta):
     linha_original = linha_bruta.strip().replace('"', '')
     if not linha_original:
         return None
         
-    # IDENTIFICAÇÃO DE SC
     linha_limpa_fim = linha_original.lower()
     if linha_limpa_fim.endswith(".mp3"):
         linha_limpa_fim = linha_limpa_fim[:-4].strip()
@@ -63,7 +66,6 @@ def processar_linha_musica(linha_bruta):
     if linha_limpa_fim.endswith("- sc") or linha_limpa_fim.endswith("-sc"):
         eh_sc = True
         
-    # LIMPEZA PADRÃO
     if "\\" in linha_original:
         linha_trabalho = linha_original.split("\\")[-1]
     else:
@@ -89,8 +91,6 @@ def processar_linha_musica(linha_bruta):
         compositores_com_parentese = busca_comp.group(0)
         compositores = re.sub(r'\((comp\.|compa)\s*', '', compositores_com_parentese, flags=re.IGNORECASE).rstrip(')')
         linha_trabalho = linha_trabalho.replace(compositores_com_parentese, "").replace("  ", " ")
-    else:
-        linha_trabalho = linha_trabalho
 
     partes = [p.strip() for p in linha_trabalho.split(" - ")]
     
@@ -147,12 +147,30 @@ def processar_linha_musica(linha_bruta):
 
 
 # ==========================================
-# PÁGINA 1: FORMATADOR DE ACERVO
+# PAINEL DE EXECUÇÃO DAS PÁGINAS
 # ==========================================
+
 if opcao == "💿 Formatador de Acervo":
     st.title("💿 Automatizador de Acervo Para Udesc FM")
     st.markdown("Insira a lista de músicas para limpar, formatar e separar para o Acervo Geral ou Som da Ilha (SC).")
 
     texto_bruto = st.text_area("Cole aqui as linhas brutas das músicas baixadas (pode misturar normais e com SC):", height=250, placeholder="M:\\...")
 
-    if st.button("
+    if st.button("Processar e Organizar Acervos 🚀", type="primary"):
+        if texto_bruto:
+            linhas = texto_bruto.split('\n')
+            lista_geral = []
+            lista_sc = []
+            
+            for linha in linhas:
+                res = processar_linha_musica(linha)
+                if res:
+                    eh_sc = res.pop("eh_sc")
+                    
+                    if eh_sc:
+                        dados_sc = {
+                            "Música": res["Música"], "Artista": res["Artista"], "Compositores": res["Compositores"],
+                            "Formato": res["Formato"], "Ano": res["Ano"], "Origem": res["Origem"], "Gênero": res["Gênero"],
+                            "Gênero Relacionado": res["Gênero Relacionado"], "Est": "SC", "Classificação": res["Classificação"],
+                            "Andamento": res["Andamento"], "Data Cadastro": res["Data Cadastro"], "Participações": res["Participações"],
+                            "Nome do Arquivo": res
