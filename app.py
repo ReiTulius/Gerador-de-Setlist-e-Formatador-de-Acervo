@@ -4,7 +4,7 @@ import re
 from datetime import datetime
 
 # Configuração da página do aplicativo (Definida apenas UMA vez no topo do site)
-st.set_page_config(page_title="Painel Udesc FM - Tulio", page_icon="📻", layout="wide")
+st.set_page_config(page_title="Painel de Formatação Udesc FM", page_icon="📻", layout="wide")
 
 # 🔗 LINK DA PLANILHA DO GOOGLE DO SEU GERADOR DE SETLIST
 URL_GOOGLE_SHEETS = "https://docs.google.com/spreadsheets/d/1zkPm3F9W8QbOBhKvdV7jFCYqH-U8Qbru5w5TDyAHQLw/edit?usp=sharing"
