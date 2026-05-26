@@ -19,11 +19,11 @@ st.sidebar.caption("Desenvolvido para otimizar a programação da Udesc FM 🎧"
 
 
 # ==========================================
-# FUNÇÕES DE SUPORTE
+# FUNÇÃO DE LIMPEZA E FORMATAÇÃO DE ACERVO
 # ==========================================
 def processar_linha_musica(linha_bruta):
     linha_original = linha_bruta.strip().replace('"', '')
-    if not line_original:
+    if not linha_original:
         return None
         
     # IDENTIFICAÇÃO DE SC
@@ -186,15 +186,18 @@ elif opcao == "📸 Gerador de Setlist (Instagram)":
     st.title("📸 Gerador de Setlist para Instagram")
     st.markdown("Cole as músicas tocadas no bloco para gerar o texto de divulgação marcando o @ dos artistas do Som da Ilha.")
 
-    # Banco de dados de arrobas (Você pode adicionar quantos quiser aqui dentro seguindo o padrão)
+    # 🗂️ BANCO DE DADOS DE@ARROBAS (Adicione novos artistas aqui seguindo o padrão minúsculo)
     dicionario_artistas = {
         "tulio mota": "@tuliomota_",
         "jessica lourenço": "@jessicalourenco",
-        "aaron frazer": "@aaron_frazer",
-        "addison rae": "@addisonre"
+        "matheus souto": "@matheussouto_",
+        "letícia coelho": "@leticiacoelho_musica",
+        "o clube": "@oclubeband",
+        "novos ilhados": "@novosilhados",
+        "akanoá": "@akanoamusica"
     }
 
-    texto_setlist = st.text_area("Cole aqui as linhas das músicas que tocaram no programa:", height=200, placeholder="Tulio Mota - Pirilampo...")
+    texto_setlist = st.text_area("Cole aqui as linhas das músicas que tocaram no programa:", height=200, placeholder="Letícia Coelho - Peito Fora...")
 
     if st.button("Gerar Texto para o Insta 📲", type="primary"):
         if texto_setlist:
@@ -202,40 +205,13 @@ elif opcao == "📸 Gerador de Setlist (Instagram)":
             texto_final_insta = "🎵 HOJE NO SOM DA ILHA 🏝️\n\n"
             linhas_processadas = 0
             
-            for linha in linhas_set:
+            for linha in list(dict.fromkeys(linhas_set)):  # Remove duplicados de linhas brutas idênticas
                 linha = linha.strip()
-                if not linha:
+                if not linha or "total:" in linha.lower() or "marcador" in linha.lower():
                     continue
                 
-                # Limpezas básicas caso a linha venha com caminho ou .mp3
+                # 🧹 LIMPEZA DE LABELS E REPETIÇÕES (Ex: se vier caminho do Windows)
                 if "\\" in linha:
                     linha = linha.split("\\")[-1]
                 if linha.lower().endswith(".mp3"):
                     linha = linha[:-4]
-                # Remove marcas de SC e compositores para a leitura do nome do artista ficar limpa
-                linha_limpa = re.sub(r'\s*-\s*sc\s*$', '', linha, flags=re.IGNORECASE)
-                linha_limpa = re.sub(r'\(comp\.[^)]+\)', '', linha_limpa, flags=re.IGNORECASE)
-                
-                partes = [p.strip() for p in linha_limpa.split(" - ")]
-                
-                if len(partes) >= 2:
-                    artista_original = partes[0]
-                    musica_original = partes[1]
-                    
-                    # Procura o @ do artista principal no banco de dados
-                    artista_chave = artista_original.lower().strip()
-                    artista_marcado = dicionario_artistas.get(artista_chave, artista_original)
-                    
-                    texto_final_insta += f"▪️ {artista_marcado} - {musica_original}\n"
-                    linhas_processadas += 1
-            
-            if lines_processadas > 0:
-                texto_final_insta += "\nSintonize em 100.1 FM ou no nosso site! 📻✨"
-                
-                st.success("✨ Texto gerado perfeitamente! Só copiar e postar:")
-                st.text_area("Texto Pronto:", value=texto_final_insta, height=250)
-                st.caption("Dica: Clique dentro da caixa acima, aperte Ctrl+A e depois Ctrl+C.")
-            else:
-                st.warning("Nenhuma música pôde ser formatada. Certifique-se de usar o padrão 'Artista - Música'.")
-        else:
-            st.warning("Cole a lista de músicas do setlist antes de gerar.")
