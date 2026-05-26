@@ -3,8 +3,11 @@ import pandas as pd
 import re
 from datetime import datetime
 
-# Configuração da página do aplicativo (Definida apenas UMA vez no topo)
+# Configuração da página do aplicativo (Apenas uma vez no topo)
 st.set_page_config(page_title="Painel Udesc FM - Tulio", page_icon="📻", layout="wide")
+
+# --- LINK DA PLANILHA DO GOOGLE SHEETS (SEU BANCO DE DADOS DE@ARROBAS) ---
+URL_GOOGLE_SHEETS = "https://docs.google.com/spreadsheets/d/1zkPm3F9W8QbOBhKvdV7jFCYqH-U8Qbru5w5TDyAHQLw/edit?usp=sharing"
 
 # --- MENU LATERAL DE NAVEGAÇÃO ---
 st.sidebar.title("📻 Painel de Controle")
@@ -13,14 +16,39 @@ opcao = st.sidebar.radio(
     "Navegar para:",
     ["💿 Formatador de Acervo", "📸 Gerador de Setlist (Instagram)"]
 )
-
 st.sidebar.markdown("---")
 st.sidebar.caption("Desenvolvido para otimizar a programação da Udesc FM 🎧")
 
 
 # ==========================================
-# FUNÇÃO DE LIMPEZA E FORMATAÇÃO DE ACERVO
+# FUNÇÕES DE SUPORTE (COMPARTILHADAS)
 # ==========================================
+def converter_link_google(url):
+    if "docs.google.com/spreadsheets" in url:
+        id_planilha = url.split("/d/")[1].split("/")[0]
+        return f"https://docs.google.com/spreadsheets/d/{id_planilha}/export?format=csv"
+    return url
+
+@st.cache_data(ttl=300) # Mantém em memória por 5 minutos para performance ultra-rápida
+def carregar_banco_instagram(url):
+    try:
+        url_direta = converter_link_google(url)
+        df = pd.read_csv(url_direta)
+        df.columns = [str(c).strip().lower() for c in df.columns]
+        col_artista = df.columns[0]
+        col_insta = df.columns[1]
+        
+        banco = {}
+        for _, linha_planilha in df.iterrows():
+            nome_artista = str(linha_planilha[col_artista]).strip().lower()
+            insta = str(linha_planilha[col_insta]).strip() if pd.notna(linha_planilha[col_insta]) else ""
+            if insta.lower() in ["nan", "null", "none", "0"]:
+                insta = ""
+            banco[nome_artista] = insta
+        return banco, None
+    except Exception as e:
+        return {}, f"Erro ao conectar com o Google Drive: {e}"
+
 def processar_linha_musica(linha_bruta):
     linha_original = linha_bruta.strip().replace('"', '')
     if not linha_original:
@@ -127,91 +155,4 @@ if opcao == "💿 Formatador de Acervo":
 
     texto_bruto = st.text_area("Cole aqui as linhas brutas das músicas baixadas (pode misturar normais e com SC):", height=250, placeholder="M:\\...")
 
-    if st.button("Processar e Organizar Acervos 🚀", type="primary"):
-        if texto_bruto:
-            linhas = texto_bruto.split('\n')
-            lista_geral = []
-            lista_sc = []
-            
-            for linha in linhas:
-                res = processar_linha_musica(linha)
-                if res:
-                    eh_sc = res.pop("eh_sc")
-                    
-                    if eh_sc:
-                        dados_sc = {
-                            "Música": res["Música"], "Artista": res["Artista"], "Compositores": res["Compositores"],
-                            "Formato": res["Formato"], "Ano": res["Ano"], "Origem": res["Origem"], "Gênero": res["Gênero"],
-                            "Gênero Relacionado": res["Gênero Relacionado"], "Est": "SC", "Classificação": res["Classificação"],
-                            "Andamento": res["Andamento"], "Data Cadastro": res["Data Cadastro"], "Participações": res["Participações"],
-                            "Nome do Arquivo": res["Nome do Arquivo"]
-                        }
-                        lista_sc.append(dados_sc)
-                    else:
-                        dados_geral = {
-                            "Música": res["Música"], "Artista": res["Artista"], "Compositores": res["Compositores"],
-                            "Formato": res["Formato"], "Ano": res["Ano"], "Origem": res["Origem"], "Gênero": res["Gênero"],
-                            "Gênero Relacionado": res["Gênero Relacionado"], "Idioma": "", "Classificação": res["Classificação"],
-                            "Andamento": res["Andamento"], "Data Cadastro": res["Data Cadastro"], "Participações": res["Participações"],
-                            "Nome do Arquivo": res["Nome do Arquivo"]
-                        }
-                        lista_geral.append(dados_geral)
-            
-            if lista_geral:
-                df_geral = pd.DataFrame(lista_geral)
-                df_geral.drop_duplicates(subset=["Nome do Arquivo"], keep="first", inplace=True)
-                st.success(f"🎉 {len(df_geral)} músicas prontas para o ACERVO GERAL!")
-                st.markdown("👉 *Clique na tabela abaixo, use **Ctrl+A** e **Ctrl+C**, e cole na sua planilha do Acervo Geral.*")
-                st.dataframe(df_geral, use_container_width=True)
-                
-            if lista_sc:
-                df_sc = pd.DataFrame(lista_sc)
-                df_sc.drop_duplicates(subset=["Nome do Arquivo"], keep="first", inplace=True)
-                st.warning(f"🏝️ {len(df_sc)} músicas de Santa Catarina identificadas para o SOM DA ILHA!")
-                st.markdown("👉 *Clique na tabela abaixo, use **Ctrl+A** e **Ctrl+C**, e cole na sua planilha do Som da Ilha.*")
-                st.dataframe(df_sc, use_container_width=True)
-                
-            if lista_geral or lista_sc:
-                st.balloons()
-            else:
-                st.warning("Nenhuma linha válida encontrada no padrão.")
-        else:
-            st.warning("Cole os dados antes de processar.")
-
-
-# ==========================================
-# PÁGINA 2: GERADOR DE SETLIST INSTAGRAM
-# ==========================================
-elif opcao == "📸 Gerador de Setlist (Instagram)":
-    st.title("📸 Gerador de Setlist para Instagram")
-    st.markdown("Cole as músicas tocadas no bloco para gerar o texto de divulgação marcando o @ dos artistas do Som da Ilha.")
-
-    # 🗂️ BANCO DE DADOS DE@ARROBAS (Adicione novos artistas aqui seguindo o padrão minúsculo)
-    dicionario_artistas = {
-        "tulio mota": "@tuliomota_",
-        "jessica lourenço": "@jessicalourenco",
-        "matheus souto": "@matheussouto_",
-        "letícia coelho": "@leticiacoelho_musica",
-        "o clube": "@oclubeband",
-        "novos ilhados": "@novosilhados",
-        "akanoá": "@akanoamusica"
-    }
-
-    texto_setlist = st.text_area("Cole aqui as linhas das músicas que tocaram no programa:", height=200, placeholder="Letícia Coelho - Peito Fora...")
-
-    if st.button("Gerar Texto para o Insta 📲", type="primary"):
-        if texto_setlist:
-            linhas_set = texto_setlist.split('\n')
-            texto_final_insta = "🎵 HOJE NO SOM DA ILHA 🏝️\n\n"
-            linhas_processadas = 0
-            
-            for linha in list(dict.fromkeys(linhas_set)):  # Remove duplicados de linhas brutas idênticas
-                linha = linha.strip()
-                if not linha or "total:" in linha.lower() or "marcador" in linha.lower():
-                    continue
-                
-                # 🧹 LIMPEZA DE LABELS E REPETIÇÕES (Ex: se vier caminho do Windows)
-                if "\\" in linha:
-                    linha = linha.split("\\")[-1]
-                if linha.lower().endswith(".mp3"):
-                    linha = linha[:-4]
+    if st.button("
